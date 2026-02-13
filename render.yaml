@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: d2-mcp
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /health
