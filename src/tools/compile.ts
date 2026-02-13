@@ -1,10 +1,11 @@
 import { z } from "zod";
+import sharp from "sharp";
 import { compileD2 } from "../d2.js";
 
 export const compileToolName = "compile";
 
 export const compileToolDescription =
-  "Compile D2 diagram source code into an SVG image. D2 is a declarative diagramming language that turns text into diagrams. Returns the SVG markup as a string.";
+  "Compile D2 diagram source code into a rendered diagram image. D2 is a declarative diagramming language that turns text into diagrams. Returns the diagram as a PNG image and the raw SVG markup.";
 
 export const compileToolSchema = z.object({
   code: z
@@ -61,8 +62,21 @@ export type CompileToolInput = z.infer<typeof compileToolSchema>;
 export async function handleCompile(input: CompileToolInput) {
   const { code, ...options } = input;
   const result = await compileD2(code, options);
+
+  // Convert SVG to PNG so MCP clients (like Claude) can render it visually
+  const pngBuffer = await sharp(Buffer.from(result.svg))
+    .png()
+    .toBuffer();
+
+  const pngBase64 = pngBuffer.toString("base64");
+
   return {
     content: [
+      {
+        type: "image" as const,
+        data: pngBase64,
+        mimeType: "image/png",
+      },
       {
         type: "text" as const,
         text: result.svg,

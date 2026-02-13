@@ -13,8 +13,9 @@ RUN npm run build
 # Stage 2: Production
 FROM node:22-slim
 
-# Install curl + ca-certificates for downloading D2, then clean up
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+# Install curl for downloading D2 + fontconfig/fonts for sharp SVG rendering
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates fontconfig fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install D2 CLI binary
