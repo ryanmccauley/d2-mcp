@@ -1,4 +1,4 @@
-# Stage 1: Build
+# Stage 1: Build TypeScript
 FROM node:22-slim AS builder
 
 WORKDIR /app
@@ -12,6 +12,19 @@ RUN npm run build
 
 # Stage 2: Production
 FROM node:22-slim
+
+# Install curl + ca-certificates for downloading D2, then clean up
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and install D2 CLI binary
+ARG D2_VERSION=0.7.1
+RUN curl -fsSL "https://github.com/terrastruct/d2/releases/download/v${D2_VERSION}/d2-v${D2_VERSION}-linux-amd64.tar.gz" \
+    | tar xz -C /tmp \
+    && mv "/tmp/d2-v${D2_VERSION}/bin/d2" /usr/local/bin/d2 \
+    && chmod +x /usr/local/bin/d2 \
+    && rm -rf /tmp/d2-* \
+    && d2 --version
 
 WORKDIR /app
 

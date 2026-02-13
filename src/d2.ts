@@ -1,18 +1,16 @@
-import { D2 } from "@terrastruct/d2";
-import type { CompileOptions as D2CompileOptions, CompileResponse, RenderOptions } from "@terrastruct/d2";
+import { execFile } from "node:child_process";
 
-let instance: D2 | null = null;
+/**
+ * Path to the d2 CLI binary. Defaults to "d2" (resolved via PATH).
+ * Override with the D2_PATH environment variable if installed elsewhere.
+ */
+const D2_BIN = process.env.D2_PATH || "d2";
 
-export function getD2(): D2 {
-  if (!instance) {
-    instance = new D2();
-  }
-  return instance;
-}
+/** Timeout for CLI invocations (30 seconds). */
+const CLI_TIMEOUT_MS = 30_000;
 
 export interface CompileResult {
   svg: string;
-  diagram: CompileResponse["diagram"];
 }
 
 export interface CompileOptions {
@@ -28,67 +26,120 @@ export interface CompileOptions {
   noXMLTag?: boolean;
 }
 
+/**
+ * Compile D2 source code into SVG by shelling out to the d2 CLI.
+ *
+ * Equivalent to: echo '<code>' | d2 [flags] - -
+ *   - First `-` = read from stdin
+ *   - Second `-` = write to stdout
+ */
 export async function compileD2(
   code: string,
   options: CompileOptions = {}
 ): Promise<CompileResult> {
-  const d2 = getD2();
+  const args = buildCompileArgs(options);
+  // Input from stdin (`-`), output to stdout (`-`)
+  args.push("-", "-");
 
-  const d2CompileOptions: D2CompileOptions = {};
-  if (options.layout) d2CompileOptions.layout = options.layout;
-  if (options.sketch !== undefined) d2CompileOptions.sketch = options.sketch;
-  if (options.themeID !== undefined) d2CompileOptions.themeID = options.themeID;
-  if (options.darkThemeID !== undefined)
-    d2CompileOptions.darkThemeID = options.darkThemeID;
-  if (options.pad !== undefined) d2CompileOptions.pad = options.pad;
-  if (options.center !== undefined) d2CompileOptions.center = options.center;
-  if (options.scale !== undefined) d2CompileOptions.scale = options.scale;
-  if (options.target !== undefined) d2CompileOptions.target = options.target;
-  if (options.noXMLTag !== undefined) d2CompileOptions.noXMLTag = options.noXMLTag;
-  if (options.animateInterval !== undefined)
-    d2CompileOptions.animateInterval = options.animateInterval;
-
-  const result = await d2.compile(code, { options: d2CompileOptions });
-
-  const renderOptions: RenderOptions = { ...result.renderOptions };
-  // Apply any overrides from compile options onto render options
-  if (options.sketch !== undefined) renderOptions.sketch = options.sketch;
-  if (options.themeID !== undefined) renderOptions.themeID = options.themeID;
-  if (options.darkThemeID !== undefined)
-    renderOptions.darkThemeID = options.darkThemeID;
-  if (options.pad !== undefined) renderOptions.pad = options.pad;
-  if (options.center !== undefined) renderOptions.center = options.center;
-  if (options.scale !== undefined) renderOptions.scale = options.scale;
-  if (options.noXMLTag !== undefined) renderOptions.noXMLTag = options.noXMLTag;
-  if (options.animateInterval !== undefined)
-    renderOptions.animateInterval = options.animateInterval;
-  if (options.target !== undefined) renderOptions.target = options.target;
-
-  const svg = await d2.render(result.diagram, renderOptions);
-
-  return { svg, diagram: result.diagram };
+  const stdout = await runD2(args, code);
+  return { svg: stdout };
 }
 
+/**
+ * Validate D2 source code without rendering.
+ *
+ * Equivalent to: echo '<code>' | d2 validate -
+ */
 export async function validateD2(
   code: string
 ): Promise<{ valid: boolean; errors: string[] }> {
-  const d2 = getD2();
   try {
-    await d2.compile(code, { options: {} });
+    await runD2(["validate", "-"], code);
     return { valid: true, errors: [] };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : String(err);
+    const message = err instanceof Error ? err.message : String(err);
+    // The CLI prints error details to stderr on validation failure
     return { valid: false, errors: [message] };
   }
 }
 
-export async function getD2Version(): Promise<{
-  engine: string;
-  js: string;
-}> {
-  const d2 = getD2() as D2 & { version?: () => Promise<string>; jsVersion?: () => Promise<string> };
-  const engine = d2.version ? await d2.version() : "unknown";
-  const js = d2.jsVersion ? await d2.jsVersion() : "unknown";
-  return { engine, js };
+/**
+ * Get the installed D2 CLI version.
+ *
+ * Equivalent to: d2 --version
+ */
+export async function getD2Version(): Promise<string> {
+  const output = await runD2(["--version"]);
+  return output.trim();
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function buildCompileArgs(options: CompileOptions): string[] {
+  const args: string[] = [];
+
+  if (options.layout) {
+    args.push("--layout", options.layout);
+  }
+  if (options.themeID !== undefined) {
+    args.push("--theme", String(options.themeID));
+  }
+  if (options.darkThemeID !== undefined) {
+    args.push("--dark-theme", String(options.darkThemeID));
+  }
+  if (options.sketch) {
+    args.push("--sketch");
+  }
+  if (options.pad !== undefined) {
+    args.push("--pad", String(options.pad));
+  }
+  if (options.center) {
+    args.push("--center");
+  }
+  if (options.scale !== undefined) {
+    args.push("--scale", String(options.scale));
+  }
+  if (options.target !== undefined) {
+    args.push("--target", options.target);
+  }
+  if (options.animateInterval !== undefined) {
+    args.push("--animate-interval", String(options.animateInterval));
+  }
+  if (options.noXMLTag) {
+    args.push("--no-xml-tag");
+  }
+
+  return args;
+}
+
+/**
+ * Run the d2 CLI with the given args, optionally piping `stdin` data.
+ * Resolves with stdout on success; rejects with stderr on non-zero exit.
+ */
+function runD2(args: string[], stdin?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      D2_BIN,
+      args,
+      {
+        timeout: CLI_TIMEOUT_MS,
+        maxBuffer: 20 * 1024 * 1024, // 20 MB — SVGs can be large
+        encoding: "utf-8",
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          // Combine stderr with the error message for context
+          const detail = stderr?.trim() || error.message;
+          reject(new Error(detail));
+          return;
+        }
+        resolve(stdout);
+      }
+    );
+
+    if (stdin && child.stdin) {
+      child.stdin.write(stdin);
+      child.stdin.end();
+    }
+  });
 }

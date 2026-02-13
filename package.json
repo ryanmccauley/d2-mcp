@@ -9,17 +9,21 @@
     "start": "node dist/index.js",
     "dev": "tsc && node dist/index.js"
   },
-  "keywords": ["d2", "mcp", "diagram", "wasm"],
+  "keywords": [
+    "d2",
+    "mcp",
+    "diagram"
+  ],
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "@terrastruct/d2": "^0.1.33",
     "express": "^5.1.0",
     "zod": "^3.25.67"
   },
   "devDependencies": {
     "@types/express": "^5.0.2",
     "@types/node": "^22.15.0",
+    "sharp": "^0.34.5",
     "typescript": "^5.8.3"
   }
 }
