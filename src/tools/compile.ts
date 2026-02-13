@@ -1,6 +1,7 @@
 import { z } from "zod";
 import sharp from "sharp";
 import { compileD2 } from "../d2.js";
+import { resolveIconUrls } from "../icon-resolver.js";
 
 export const compileToolName = "compile";
 
@@ -61,7 +62,12 @@ export type CompileToolInput = z.infer<typeof compileToolSchema>;
 
 export async function handleCompile(input: CompileToolInput) {
   const { code, ...options } = input;
-  const result = await compileD2(code, options);
+
+  // Rewrite remote icon URLs to local file paths so D2 CLI
+  // doesn't need to fetch them over the network (avoids 403s).
+  const resolvedCode = resolveIconUrls(code);
+
+  const result = await compileD2(resolvedCode, options);
 
   // Convert SVG to PNG so MCP clients (like Claude) can render it visually
   const pngBuffer = await sharp(Buffer.from(result.svg))

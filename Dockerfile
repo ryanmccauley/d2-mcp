@@ -10,7 +10,18 @@ COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npm run build
 
-# Stage 2: Production
+# Stage 2: Download icons (separate stage so it caches independently)
+FROM node:22-slim AS icons
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY scripts/download-icons.sh ./scripts/
+RUN chmod +x ./scripts/download-icons.sh && ./scripts/download-icons.sh /app/icons
+
+# Stage 3: Production
 FROM node:22-slim
 
 # Install curl for downloading D2 + fontconfig/fonts for sharp SVG rendering
@@ -33,9 +44,11 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
+COPY --from=icons /app/icons ./icons
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV ICONS_DIR=/app/icons
 
 EXPOSE 3000
 

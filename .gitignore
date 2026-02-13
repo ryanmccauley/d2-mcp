@@ -1,5 +1,7 @@
 node_modules/
 dist/
+icons/
+output/
 *.js.map
 *.d.ts.map
 .env

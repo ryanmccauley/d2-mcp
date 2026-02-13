@@ -69,6 +69,8 @@ const ICON_CATALOG: Record<
       // Analytics
       { name: "Kinesis", url: icon("aws/Analytics/Amazon-Kinesis.svg") },
       { name: "Redshift (Analytics)", url: icon("aws/Analytics/Amazon-Redshift.svg") },
+      { name: "Athena", url: icon("aws/Analytics/Amazon-Athena.svg") },
+      { name: "OpenSearch (Elasticsearch)", url: icon("aws/Analytics/Amazon-Elasticsearch-Service.svg") },
       // Security, Identity, & Compliance
       { name: "IAM", url: icon("aws/Security, Identity, & Compliance/AWS-Identify-and-Access-Management_IAM.svg") },
       { name: "Cognito", url: icon("aws/Security, Identity, & Compliance/Amazon-Cognito.svg") },
@@ -84,6 +86,9 @@ const ICON_CATALOG: Record<
       { name: "CodePipeline", url: icon("aws/Developer Tools/AWS-CodePipeline.svg") },
       { name: "CodeBuild", url: icon("aws/Developer Tools/AWS-CodeBuild.svg") },
       { name: "CodeDeploy", url: icon("aws/Developer Tools/AWS-CodeDeploy.svg") },
+      { name: "X-Ray", url: icon("aws/Developer Tools/AWS-X-Ray.svg") },
+      // Internet of Things
+      { name: "IoT Core", url: icon("aws/Internet of Things/AWS-IoT-Core.svg") },
     ],
   },
   gcp: {
